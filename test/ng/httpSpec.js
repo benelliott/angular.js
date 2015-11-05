@@ -293,7 +293,7 @@ describe('$http', function() {
       $httpBackend = $hb;
       $http = $h;
       $rootScope = $rs;
-      spyOn($rootScope, '$apply').andCallThrough();
+      spyOn($rootScope, '$evalAsync').andCallThrough();
     }]));
 
     it('should throw error if the request configuration is not an object', function() {
@@ -1012,31 +1012,37 @@ describe('$http', function() {
     });
 
 
-    describe('scope.$apply', function() {
+    describe('$rootScope.$evalAsync', function() {
 
-      it('should $apply after success callback', function() {
-        $httpBackend.when('GET').respond(200);
-        $http({method: 'GET', url: '/some'});
-        $httpBackend.flush();
-        expect($rootScope.$apply).toHaveBeenCalledOnce();
+      it('should $evalAsync after success callback', function() {
+        $httpBackend.whenGET().respond(200);
+        $http.get('/some');
+        $rootScope.$digest();   // Send the request
+        $rootScope.$evalAsync.reset();
+        $httpBackend.flush(null, false);
+        expect($rootScope.$evalAsync).toHaveBeenCalledOnce();
       });
 
 
-      it('should $apply after error callback', function() {
-        $httpBackend.when('GET').respond(404);
-        $http({method: 'GET', url: '/some'});
-        $httpBackend.flush();
-        expect($rootScope.$apply).toHaveBeenCalledOnce();
+      it('should $evalAsync after error callback', function() {
+        $httpBackend.whenGET().respond(404);
+        $http.get('/some');
+        $rootScope.$digest();   // Send the request
+        $rootScope.$evalAsync.reset();
+        $httpBackend.flush(null, false);
+        expect($rootScope.$evalAsync).toHaveBeenCalledOnce();
       });
 
 
-      it('should $apply even if exception thrown during callback', inject(function($exceptionHandler) {
-        $httpBackend.when('GET').respond(200);
+      it('should $evalAsync even if exception thrown during callback', inject(function($exceptionHandler) {
+        $httpBackend.whenGET().respond(200);
         callback.andThrow('error in callback');
 
-        $http({method: 'GET', url: '/some'}).then(callback);
-        $httpBackend.flush();
-        expect($rootScope.$apply).toHaveBeenCalledOnce();
+        $http.get('/some');
+        $rootScope.$digest();   // Send the request
+        $rootScope.$evalAsync.reset();
+        $httpBackend.flush(null, false);
+        expect($rootScope.$evalAsync).toHaveBeenCalledOnce();
 
         $exceptionHandler.errors = [];
       }));
@@ -1921,9 +1927,7 @@ describe('$http', function() {
 
 describe('$http with $applyAsync', function() {
   var $http, $httpBackend, $rootScope, $browser, log;
-  beforeEach(module(function($httpProvider) {
-    $httpProvider.useApplyAsync(true);
-  }, provideLog));
+  beforeEach(module(provideLog));
 
 
   beforeEach(inject(['$http', '$httpBackend', '$rootScope', '$browser', 'log', function(http, backend, scope, browser, logger) {
@@ -1939,7 +1943,7 @@ describe('$http with $applyAsync', function() {
   }]));
 
 
-  it('should schedule coalesced apply on response', function() {
+  it('should defer response handling', function() {
     var handler = jasmine.createSpy('handler');
     $httpBackend.expect('GET', '/template1.html').respond(200, '<h1>Header!</h1>', {});
     $http.get('/template1.html').then(handler);
@@ -1947,7 +1951,6 @@ describe('$http with $applyAsync', function() {
     $rootScope.$digest();
 
     $httpBackend.flush(null, false);
-    expect($rootScope.$applyAsync).toHaveBeenCalledOnce();
     expect(handler).not.toHaveBeenCalled();
 
     $browser.defer.flush();

@@ -372,6 +372,7 @@ describe('ngInclude', function() {
       $httpBackend.expectGET('include.svg').respond('<rect></rect><rect></rect>');
       element = $compile('<svg><test></test></svg>')($rootScope);
       $httpBackend.flush();
+      $httpBackend.flush();
       var child = element.find('rect');
       expect(child.length).toBe(2);
       expect(child[0] instanceof SVGRectElement).toBe(true);
